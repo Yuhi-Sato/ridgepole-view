@@ -9,6 +9,10 @@ module Ridgepole
         from = (from || {}).deep_dup
         to = (to || {}).deep_dup
 
+        # Ridgepole::Diff#diff iterates all keys in the definition hash as table names,
+        # accessing table-specific attributes (:definition, :options) via scan_change etc.
+        # The :views data structure differs from tables, so passing it through causes NoMethodError.
+        # Extract :views before calling super and handle view diffing separately.
         from_views = from.delete(:views) || {}
         to_views = to.delete(:views) || {}
 

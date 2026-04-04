@@ -82,6 +82,12 @@ The plugin extends Ridgepole's core components via `prepend`:
 
 View changes are applied through Scenic's `Statements` module (`create_view`, `drop_view`), which delegates to `Scenic.database` (PostgreSQL adapter).
 
+### Why `:views` is temporarily removed before `super`
+
+Ridgepole's `Diff#diff` and `DSLParser#check_definition` iterate over all keys in the definition hash, treating each key as a table name and accessing table-specific attributes such as `:definition` and `:options`. Since the view data structure (`{ sql_definition:, materialized: }`) differs from the table structure, passing it through as-is would cause `NoMethodError` or false validation failures.
+
+To avoid this, the plugin temporarily extracts the `:views` key before calling `super`, allowing Ridgepole's core table processing to run without interference. After `super` completes, the `:views` key is restored. View diffing is handled by a separate `diff_views` method.
+
 ### Diff behavior
 
 - **Added view**: `create_view` is generated
