@@ -70,15 +70,41 @@ ridgepole -r ridgepole-view -e -c config.yml -o Schemafile
 
 ## How it works
 
-The plugin extends Ridgepole's core components via `prepend`:
+### Ridgepole's architecture
 
-| Component | Extension |
-|-----------|-----------|
-| `DSLParser::Context` | Adds `create_view` DSL method |
-| `DSLParser` | Excludes `:views` from table validation |
-| `Dumper` | Appends existing views to schema dump via `Scenic.database.views` |
-| `Diff` | Detects view additions, changes, and deletions |
-| `Delta` | Generates `create_view` / `drop_view` migration scripts |
+Ridgepole applies schema changes through the following pipeline:
+
+```
+Schemafile (DSL)
+    │
+    ▼
+DSLParser::Context  ─── Evaluates the Schemafile via instance_eval, converting
+    │                    DSL methods (create_table, etc.) into a definition hash
+    ▼
+DSLParser           ─── Validates the definition hash (checks for orphan
+    │                    indexes, foreign keys without tables, etc.)
+    ▼
+Dumper              ─── Reads the current DB state as a DSL string via
+    │                    ActiveRecord::SchemaDumper (also used for export)
+    ▼
+Diff                ─── Compares the "current state" (from Dumper) with the
+    │                    "desired state" (from DSLParser) and detects differences
+    ▼
+Delta               ─── Generates migration scripts (create_table, drop_table,
+                         etc.) from the diff result and executes them
+```
+
+### What this plugin extends
+
+This plugin injects view support into each component above via `prepend`:
+
+| Component | Original responsibility | This plugin's extension |
+|-----------|----------------------|------------------------|
+| `DSLParser::Context` | Provides DSL methods like `create_table` | Adds `create_view` method, stores views under `:views` key |
+| `DSLParser` | Validates the definition hash integrity | Excludes `:views` from table validation |
+| `Dumper` | Converts current DB state to DSL string | Appends existing views via `Scenic.database.views` |
+| `Diff` | Compares two definition hashes to detect changes | Detects view add/change/delete |
+| `Delta` | Generates and executes migration scripts from diff | Generates `create_view` / `drop_view` scripts |
 
 View changes are applied through Scenic's `Statements` module (`create_view`, `drop_view`), which delegates to `Scenic.database` (PostgreSQL adapter).
 
