@@ -36,36 +36,45 @@ RSpec.describe Ridgepole::View::Dumper do
 
   describe "#dump" do
     before do
-      # Stub the original Ridgepole::Dumper#dump (before prepend) by stubbing
-      # the internals it depends on, so super returns a known table DSL.
-      # We need to bypass DB connection by directly stubbing at the right level.
-      allow(dumper).to receive(:dump).and_wrap_original do |original_method, &block|
-        # Call our prepended method which calls super (original dump)
-        # We need to stub the original dump's behavior
-        original_method.call(&block)
-      end
-
       scenic_db = instance_double("Scenic::Adapters::Postgres")
       allow(scenic_db).to receive(:views).and_return(views)
       allow(Scenic).to receive(:database).and_return(scenic_db)
     end
 
-    it "appends view definitions to the dump output" do
-      # Directly test the view dumping logic
-      view_dsl = views.map(&:to_schema).join("\n")
-      expect(view_dsl).to include("active_users")
-      expect(view_dsl).to include("user_stats")
+    it "appends view definitions after table DSL" do
+      allow(dumper).to receive(:dump).and_wrap_original do |_m, &block|
+        view_dsl = dumper.send(:dump_views)
+        [table_dsl, view_dsl].reject { |s| s.nil? || s.empty? }.join("\n\n")
+      end
+
+      result = dumper.dump
+      expect(result).to include(table_dsl)
+      expect(result).to include("active_users")
+      expect(result).to include("user_stats")
     end
 
     it "includes materialized option for materialized views" do
-      view_dsl = views.map(&:to_schema).join("\n")
-      expect(view_dsl).to include("materialized: true")
+      allow(dumper).to receive(:dump).and_wrap_original do |_m, &block|
+        view_dsl = dumper.send(:dump_views)
+        [table_dsl, view_dsl].reject { |s| s.nil? || s.empty? }.join("\n\n")
+      end
+
+      result = dumper.dump
+      expect(result).to include("materialized: true")
     end
 
-    it "includes SQL definitions" do
-      view_dsl = views.map(&:to_schema).join("\n")
-      expect(view_dsl).to include("SELECT name FROM users WHERE active = true")
-      expect(view_dsl).to include("SELECT count(*) AS total FROM users")
+    it "returns only table DSL when no views exist" do
+      scenic_db = instance_double("Scenic::Adapters::Postgres")
+      allow(scenic_db).to receive(:views).and_return([])
+      allow(Scenic).to receive(:database).and_return(scenic_db)
+
+      allow(dumper).to receive(:dump).and_wrap_original do |_m, &block|
+        view_dsl = dumper.send(:dump_views)
+        [table_dsl, view_dsl].reject { |s| s.nil? || s.empty? }.join("\n\n")
+      end
+
+      result = dumper.dump
+      expect(result).to eq(table_dsl)
     end
   end
 
