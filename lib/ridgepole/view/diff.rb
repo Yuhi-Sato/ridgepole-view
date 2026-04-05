@@ -20,6 +20,8 @@ module Ridgepole
 
         view_delta = diff_views(from_views, to_views)
         unless view_delta.values.all?(&:empty?)
+          # NOTE: Ridgepole::Delta does not expose a public setter for @delta.
+          # This relies on Ridgepole's internal structure and may break on major version upgrades.
           delta.instance_variable_get(:@delta)[:views] = view_delta
         end
 

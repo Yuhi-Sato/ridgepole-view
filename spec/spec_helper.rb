@@ -1,6 +1,5 @@
 # frozen_string_literal: true
 
-require "tsort"
 require "rspec"
 require "ridgepole"
 require "scenic"

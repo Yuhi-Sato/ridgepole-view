@@ -6,7 +6,7 @@ module Ridgepole
       def dump(&block)
         result = super(&block)
         view_dsl = dump_views
-        view_dsl.empty? ? result : [result, view_dsl].join("\n\n")
+        [result, view_dsl].reject { |s| s.nil? || s.empty? }.join("\n\n")
       end
 
       private
